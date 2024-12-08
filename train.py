@@ -7,12 +7,12 @@ import seaborn as sns
 import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 
 
 def load_and_preprocess_data():
-    data = pd.read_csv("data/UNSW-NB15/Data.csv")
-    labels = pd.read_csv("data/UNSW-NB15/Label.csv")
+    data = pd.read_csv("data/raw/UNSW-NB15/Data.csv")
+    labels = pd.read_csv("data/raw/UNSW-NB15/Label.csv")
 
     df = pd.merge(data, labels, left_index=True, right_index=True)
 
@@ -30,29 +30,22 @@ def load_and_preprocess_data():
     # Adjust multiclass labels to start from 0 (since we removed benign class)
     y_multiclass = y_multiclass - 1
 
+    # Encode categorical variables
     categorical_cols = X.select_dtypes(include=["object"]).columns
     for col in categorical_cols:
         le = LabelEncoder()
         X[col] = le.fit_transform(X[col])
         X_attacks[col] = le.fit_transform(X_attacks[col])
 
-    # Scale features for binary classification (not necessary for XGBoost)
-    scaler_binary = StandardScaler()
-    X_scaled = scaler_binary.fit_transform(X)
-    X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
-
-    # Scale features for multiclass classification
-    scaler_multi = StandardScaler()
-    X_attacks_scaled = scaler_multi.fit_transform(X_attacks)
-    X_attacks_scaled = pd.DataFrame(X_attacks_scaled, columns=X_attacks.columns)
-
-    return X_scaled, y_binary, X_attacks_scaled, y_multiclass
+    return X, y_binary, X_attacks, y_multiclass
 
 
 def create_directories():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    binary_dir = f"models/binary/xgboost_{timestamp}"
-    multiclass_dir = f"models/multiclass/xgboost_{timestamp}"
+    binary_dir = os.path.join("models", "trained", "binary", f"xgboost_{timestamp}")
+    multiclass_dir = os.path.join(
+        "models", "trained", "multiclass", f"xgboost_{timestamp}"
+    )
     os.makedirs(binary_dir, exist_ok=True)
     os.makedirs(multiclass_dir, exist_ok=True)
     return binary_dir, multiclass_dir
@@ -113,12 +106,12 @@ def train_and_evaluate():
         binary_cm,
         ["Benign", "Malicious"],
         "Binary Classification Confusion Matrix",
-        f"{binary_dir}/confusion_matrix.png",
+        os.path.join(binary_dir, "confusion_matrix.png"),
     )
 
-    binary_model.save_model(f"{binary_dir}/model.json")
+    binary_model.save_model(os.path.join(binary_dir, "model.json"))
 
-    with open(f"{binary_dir}/report.txt", "w") as f:
+    with open(os.path.join(binary_dir, "report.txt"), "w") as f:
         f.write("XGBoost Binary Classification Results\n")
         f.write("==================================\n\n")
         f.write(binary_report)
@@ -168,12 +161,12 @@ def train_and_evaluate():
             "Worms",
         ],
         "Multiclass Classification Confusion Matrix (Attacks Only)",
-        f"{multiclass_dir}/confusion_matrix.png",
+        os.path.join(multiclass_dir, "confusion_matrix.png"),
     )
 
-    multi_model.save_model(f"{multiclass_dir}/model.json")
+    multi_model.save_model(os.path.join(multiclass_dir, "model.json"))
 
-    with open(f"{multiclass_dir}/report.txt", "w") as f:
+    with open(os.path.join(multiclass_dir, "report.txt"), "w") as f:
         f.write("XGBoost Multiclass Classification Results (Attacks Only)\n")
         f.write("================================================\n\n")
         f.write(multi_report)

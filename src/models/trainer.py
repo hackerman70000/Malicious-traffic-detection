@@ -23,10 +23,12 @@ class ModelTrainer:
     def create_output_directories(self) -> Tuple[Path, Path]:
         """Create timestamped output directories for model artifacts."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_path = Path("models/trained")
+        base_path = Path("models/training")
 
-        binary_dir = base_path / ModelType.BINARY.value / f"xgboost_{timestamp}"
-        multiclass_dir = base_path / ModelType.MULTICLASS.value / f"xgboost_{timestamp}"
+        binary_dir = base_path / ModelType.BINARY.value / f"xgboost_{timestamp}_v1"
+        multiclass_dir = (
+            base_path / ModelType.MULTICLASS.value / f"xgboost_{timestamp}_v1"
+        )
 
         binary_dir.mkdir(parents=True, exist_ok=True)
         multiclass_dir.mkdir(parents=True, exist_ok=True)

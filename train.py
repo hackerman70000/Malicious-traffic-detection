@@ -11,8 +11,8 @@ def main():
     data_dirs = [
         Path("data/raw/UNSW-NB15"),
         Path("data/processed/UNSW-NB15"),
-        Path("models/trained/binary"),
-        Path("models/trained/multiclass"),
+        Path("models/training/binary"),
+        Path("models/training/multiclass"),
     ]
     for dir_path in data_dirs:
         dir_path.mkdir(parents=True, exist_ok=True)

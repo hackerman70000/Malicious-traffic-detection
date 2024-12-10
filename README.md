@@ -6,6 +6,12 @@
 
 ## Development
 
+### Training
+
+```sh
+uv run train.py
+```
+
 ### Package management
 
 <https://github.com/astral-sh/uv>

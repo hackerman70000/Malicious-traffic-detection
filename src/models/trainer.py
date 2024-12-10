@@ -8,6 +8,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 from src.utils.config import ModelConfig
+from src.utils.constants import ATTACK_TYPES
 from src.utils.visualization import plot_confusion_matrix
 
 
@@ -17,17 +18,6 @@ class ModelTrainer:
     def __init__(self, config: ModelConfig):
         self.config = config
         self.binary_labels = ["Benign", "Malicious"]
-        self.multiclass_labels = [
-            "Analysis",
-            "Backdoor",
-            "DoS",
-            "Exploits",
-            "Fuzzers",
-            "Generic",
-            "Reconnaissance",
-            "Shellcode",
-            "Worms",
-        ]
 
     def create_output_directories(self) -> Tuple[Path, Path]:
         """Create timestamped output directories for model artifacts."""
@@ -101,7 +91,7 @@ class ModelTrainer:
             y_multiclass,
             self.config.multiclass_params,
             multiclass_dir,
-            self.multiclass_labels,
+            ATTACK_TYPES,
             "Multiclass",
         )
 

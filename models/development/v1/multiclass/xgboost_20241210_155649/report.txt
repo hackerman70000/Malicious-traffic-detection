@@ -1,0 +1,18 @@
+XGBoost Multiclass Classification Results
+=========================================
+
+                precision    recall  f1-score   support
+
+      Analysis       0.44      0.40      0.42        68
+      Backdoor       0.82      0.47      0.60        77
+           DoS       0.77      0.26      0.39       917
+      Exploits       0.81      0.77      0.79      6191
+       Fuzzers       0.69      0.95      0.80      5859
+       Generic       0.88      0.71      0.79       929
+Reconnaissance       0.89      0.67      0.76      3370
+     Shellcode       0.61      0.26      0.37       457
+         Worms       0.67      0.37      0.47        49
+
+      accuracy                           0.76     17917
+     macro avg       0.73      0.54      0.60     17917
+  weighted avg       0.78      0.76      0.75     17917

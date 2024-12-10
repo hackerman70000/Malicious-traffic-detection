@@ -1,0 +1,11 @@
+XGBoost Binary Classification Results
+=====================================
+
+              precision    recall  f1-score   support
+
+      Benign       1.00      0.98      0.99     71701
+   Malicious       0.93      0.99      0.96     17882
+
+    accuracy                           0.98     89583
+   macro avg       0.96      0.99      0.97     89583
+weighted avg       0.98      0.98      0.98     89583

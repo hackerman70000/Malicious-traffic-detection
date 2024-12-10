@@ -1,3 +1,5 @@
+from enum import Enum
+
 ATTACK_TYPES = [
     "Analysis",
     "Backdoor",
@@ -9,3 +11,8 @@ ATTACK_TYPES = [
     "Shellcode",
     "Worms",
 ]
+
+
+class ModelType(Enum):
+    BINARY = "binary"
+    MULTICLASS = "multiclass"

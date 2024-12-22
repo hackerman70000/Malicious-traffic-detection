@@ -2,7 +2,8 @@
 
 ## Data
 
-<https://www.unb.ca/cic/datasets/cic-unsw-nb15.html>
+- <https://www.stratosphereips.org/datasets-ctu13>
+- <https://www.stratosphereips.org/datasets-normal>
 
 ## Usage
 

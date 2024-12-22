@@ -4,13 +4,13 @@
 
 <https://www.unb.ca/cic/datasets/cic-unsw-nb15.html>
 
-## Development
-
-### Training
+## Training
 
 ```sh
 uv run train.py
 ```
+
+## Development
 
 ### Package management
 

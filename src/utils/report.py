@@ -9,7 +9,7 @@ def create_confusion_matrix_text(cm: np.ndarray, labels: List[str]) -> str:
 
     Args:
         cm: Confusion matrix array
-        labels: List of class labels
+        labels: List of class labels (Benign, Malicious)
 
     Returns:
         Formatted string representation of confusion matrix
@@ -30,13 +30,12 @@ def create_confusion_matrix_text(cm: np.ndarray, labels: List[str]) -> str:
 
 
 def create_classification_report_text(
-    model_type: str, precision_report: dict, cm_text: str, detailed_report: str
+    precision_report: dict, cm_text: str, detailed_report: str
 ) -> str:
     """
-    Create complete classification report text.
+    Create complete binary classification report text.
 
     Args:
-        model_type: Type of the model (binary/multiclass)
         precision_report: Dictionary containing precision metrics
         cm_text: Text representation of confusion matrix
         detailed_report: Detailed classification report
@@ -46,19 +45,20 @@ def create_classification_report_text(
     """
     report = []
 
-    report.append(f"XGBoost {model_type.title()} Classification Results")
-    report.append("=" * (len(model_type) + 31))
+    report.append("XGBoost Binary Classification Results")
+    report.append("=" * 35)
     report.append("")
 
-    report.append("Main Metric - Precision:")
-    if "Malicious" in precision_report:
-        report.append(
-            f"Malicious class precision: {precision_report['Malicious']['precision']:.2%}"
-        )
-    else:
-        report.append(
-            f"Macro-averaged precision: {precision_report['macro avg']['precision']:.2%}"
-        )
+    report.append("Performance Metrics:")
+    report.append(
+        f"Malicious class precision: {precision_report['Malicious']['precision']:.2%}"
+    )
+    report.append(
+        f"Benign class precision: {precision_report['Benign']['precision']:.2%}"
+    )
+    report.append(
+        f"Overall precision: {precision_report['macro avg']['precision']:.2%}"
+    )
     report.append("")
 
     report.append(cm_text)

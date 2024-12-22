@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import pandas as pd
 import xgboost as xgb
@@ -8,36 +8,27 @@ from sklearn.metrics import classification_report, confusion_matrix, precision_s
 from sklearn.model_selection import train_test_split
 
 from src.utils.config import ModelConfig
-from src.utils.constants import ATTACK_TYPES, ModelType
 from src.utils.metadata import ModelMetadata
 from src.utils.visualization import plot_confusion_matrix
 
 
 class ModelTrainer:
-    """Handles model training, evaluation, and result storage."""
+    """Handles model training, evaluation, and result storage for binary classification."""
 
     def __init__(self, config: ModelConfig):
         self.config = config
-        self.binary_labels = ["Benign", "Malicious"]
+        self.labels = ["Benign", "Malicious"]
+        self.data_path = "data/processed/merged_data.csv"
 
-    def create_output_directories(self) -> Tuple[Path, Path]:
-        """Create timestamped output directories for model artifacts."""
+    def create_output_directory(self) -> Path:
+        """Create timestamped output directory for model artifacts."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_path = Path("models/training")
-
-        binary_dir = base_path / ModelType.BINARY.value / f"xgboost_{timestamp}_v1"
-        multiclass_dir = (
-            base_path / ModelType.MULTICLASS.value / f"xgboost_{timestamp}_v1"
-        )
-
-        binary_dir.mkdir(parents=True, exist_ok=True)
-        multiclass_dir.mkdir(parents=True, exist_ok=True)
-
-        return binary_dir, multiclass_dir
+        output_dir = Path("models/training/binary") / f"xgboost_{timestamp}_v1"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
 
     def create_model_metadata(
         self,
-        model_type: ModelType,
         model: xgb.XGBClassifier,
         X_train: pd.DataFrame,
         X_test: pd.DataFrame,
@@ -45,7 +36,7 @@ class ModelTrainer:
     ) -> ModelMetadata:
         """Create metadata for trained model."""
         return ModelMetadata(
-            model_type=model_type.value,
+            model_type="binary",
             framework_version=xgb.__version__,
             training_date=datetime.now().isoformat(),
             model_version=datetime.now().strftime("%Y.%m.%d"),
@@ -55,44 +46,60 @@ class ModelTrainer:
             performance_metrics=performance_metrics,
             model_parameters=model.get_params(),
             additional_info={
-                "description": f"XGBoost {model_type.value} classifier for network traffic analysis",
+                "description": "XGBoost binary classifier for network traffic analysis",
                 "feature_names": list(X_train.columns),
-                "target_labels": ATTACK_TYPES
-                if model_type == ModelType.MULTICLASS
-                else self.binary_labels,
+                "target_labels": self.labels,
             },
         )
 
-    def train_and_evaluate_model(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        model_params: Dict,
-        output_dir: Path,
-        labels: List[str],
-        model_type: ModelType,
-    ) -> None:
+    def prepare_data(self):
+        """Load and prepare the dataset."""
+        # Load data
+        data = pd.read_csv(self.data_path)
+
+        # Separate features and target
+        X = data.drop("Label", axis=1)
+        y = data["Label"]
+
+        return X, y
+
+    def train_model(self) -> Path:
         """Train, evaluate, and save model results."""
+        output_dir = self.create_output_directory()
+
+        # Prepare data
+        X, y = self.prepare_data()
+
+        # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=self.config.test_size, random_state=self.config.random_state
+            X,
+            y,
+            test_size=self.config.test_size,
+            random_state=self.config.random_state,
+            stratify=y,  # Ensure balanced split
         )
 
-        model = xgb.XGBClassifier(**model_params)
+        # Initialize and train model
+        model = xgb.XGBClassifier(**self.config.binary_params)
         model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
 
+        # Make predictions
         predictions = model.predict(X_test)
 
+        # Calculate metrics
         cm = confusion_matrix(y_test, predictions)
         report = classification_report(
-            y_test, predictions, target_names=labels, output_dict=True
+            y_test, predictions, target_names=self.labels, output_dict=True
         )
-        report_text = classification_report(y_test, predictions, target_names=labels)
+        report_text = classification_report(
+            y_test, predictions, target_names=self.labels
+        )
 
         precision = precision_score(y_test, predictions, average="macro")
-        print(f"\n{model_type.value.title()} Model Precision: {precision:.2%}")
+        print(f"\nBinary Model Precision: {precision:.2%}")
 
+        # Create and save metadata
         metadata = self.create_model_metadata(
-            model_type=model_type,
             model=model,
             X_train=X_train,
             X_test=X_test,
@@ -100,46 +107,21 @@ class ModelTrainer:
         )
         metadata.save(output_dir)
 
+        # Save model
         model.save_model(output_dir / "model.json")
 
+        # Save confusion matrix plot
         plot_confusion_matrix(
             cm,
-            labels,
-            f"{model_type.value.title()} Classification Confusion Matrix",
+            self.labels,
+            "Binary Classification Confusion Matrix",
             output_dir / "confusion_matrix.png",
         )
 
+        # Save classification report
         with open(output_dir / "report.txt", "w") as f:
-            f.write(f"XGBoost {model_type.value.title()} Classification Results\n")
-            f.write("=" * (len(model_type.value) + 31) + "\n\n")
+            f.write("XGBoost Binary Classification Results\n")
+            f.write("=" * 35 + "\n\n")
             f.write(report_text)
 
-    def train_all_models(
-        self,
-        X: pd.DataFrame,
-        y_binary: pd.Series,
-        X_attacks: pd.DataFrame,
-        y_multiclass: pd.Series,
-    ) -> Tuple[Path, Path]:
-        """Train and evaluate both binary and multiclass models."""
-        binary_dir, multiclass_dir = self.create_output_directories()
-
-        self.train_and_evaluate_model(
-            X,
-            y_binary,
-            self.config.binary_params,
-            binary_dir,
-            self.binary_labels,
-            ModelType.BINARY,
-        )
-
-        self.train_and_evaluate_model(
-            X_attacks,
-            y_multiclass,
-            self.config.multiclass_params,
-            multiclass_dir,
-            ATTACK_TYPES,
-            ModelType.MULTICLASS,
-        )
-
-        return binary_dir, multiclass_dir
+        return output_dir

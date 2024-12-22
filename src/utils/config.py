@@ -22,7 +22,7 @@ class ProcessingConfig:
     target_benign_ratio: float = 0.7
     min_class_ratio: float = 0.1
     chunk_size: int = 1000
-    memory_limit: float = 0.75  # 75% memory usage threshold
+    memory_limit: float = 0.75
 
 
 @dataclass
@@ -33,11 +33,9 @@ class DataConfig:
     processed_data_dir: Path = Path("data/processed")
     models_dir: Path = Path("models")
 
-    # Processing settings
     processing: ProcessingConfig = field(default_factory=ProcessingConfig)
     files: FileConfig = field(default_factory=FileConfig)
 
-    # Columns that should be dropped to prevent overfitting
     columns_to_drop: List[str] = field(
         default_factory=lambda: [
             "application_category_name",
@@ -70,7 +68,6 @@ class DataConfig:
         self.processed_data_dir = Path(self.processed_data_dir)
         self.models_dir = Path(self.models_dir)
 
-        # Validate paths are relative to current directory
         for directory in [self.raw_data_dir, self.processed_data_dir, self.models_dir]:
             if not directory.resolve().is_relative_to(Path.cwd()):
                 raise ValueError(
@@ -120,13 +117,11 @@ class Config:
         with open(path, "r") as f:
             config_dict = json.load(f)
 
-        # Extract nested configs
         processing_config = ProcessingConfig(
             **config_dict["data"].pop("processing", {})
         )
         files_config = FileConfig(**config_dict["data"].pop("files", {}))
 
-        # Create data config with nested configs
         data_config = DataConfig(
             **config_dict["data"], processing=processing_config, files=files_config
         )
@@ -135,5 +130,4 @@ class Config:
         return cls(data=data_config, model=model_config)
 
 
-# Default configuration
 default_config = Config()

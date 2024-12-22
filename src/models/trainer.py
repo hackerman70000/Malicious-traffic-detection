@@ -57,8 +57,8 @@ class ModelTrainer:
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
-            test_size=self.config.data.test_size,
-            random_state=self.config.data.random_state,
+            test_size=self.config.data.processing.test_size,
+            random_state=self.config.data.processing.random_state,
             stratify=y,
         )
 

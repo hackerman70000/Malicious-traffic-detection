@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+"""
+Train a new model for malicious traffic detection.
+"""
+
 import logging
 from pathlib import Path
 

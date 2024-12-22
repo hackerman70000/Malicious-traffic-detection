@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+"""
+Retrain existing models with new data.
+"""
+
 # TO DO: Refactor
 from pathlib import Path
 

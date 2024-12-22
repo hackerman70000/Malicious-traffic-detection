@@ -46,7 +46,7 @@ def create_classification_report_text(
     report = []
 
     report.append("XGBoost Binary Classification Results")
-    report.append("=" * 35)
+    report.append("=" * 54)
     report.append("")
 
     report.append("Performance Metrics:")

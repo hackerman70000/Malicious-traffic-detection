@@ -4,20 +4,51 @@ from typing import List
 
 
 @dataclass
+class FileConfig:
+    """Configuration for file operations and formats."""
+
+    pickle_extension: str = ".pkl"
+    supported_file_types: List[str] = field(default_factory=lambda: [".csv"])
+    encoding: str = "utf-8"
+
+
+@dataclass
+class ProcessingConfig:
+    """Configuration for data processing parameters."""
+
+    unknown_category: str = "unknown"
+    test_size: float = 0.2
+    random_state: int = 42
+    target_benign_ratio: float = 0.7
+    min_class_ratio: float = 0.1
+    chunk_size: int = 1000
+    memory_limit: float = 0.75  # 75% memory usage threshold
+
+
+@dataclass
 class DataConfig:
     """Configuration for data processing and paths."""
 
     raw_data_dir: Path = Path("data/raw")
     processed_data_dir: Path = Path("data/processed")
     models_dir: Path = Path("models")
-    test_size: float = 0.2
-    random_state: int = 42
-    target_benign_ratio: float = 0.7
-    chunk_size: int = 1000
-    memory_limit: float = 0.75
 
+    # Processing settings
+    processing: ProcessingConfig = field(default_factory=ProcessingConfig)
+    files: FileConfig = field(default_factory=FileConfig)
+
+    # Columns that should be dropped to prevent overfitting
     columns_to_drop: List[str] = field(
         default_factory=lambda: [
+            "application_category_name",
+            "application_name",
+            "dst_ip",
+            "dst_mac",
+            "dst_oui",
+            "src_ip",
+            "src_mac",
+            "src_oui",
+            "id",
             "bidirectional_cwr_packets",
             "bidirectional_ece_packets",
             "bidirectional_urg_packets",
@@ -28,23 +59,8 @@ class DataConfig:
             "src2dst_urg_packets",
             "ip_version",
             "tunnel_id",
-            "application_category_name",
             "application_confidence",
             "application_is_guessed",
-            "application_name",
-        ]
-    )
-
-    categorical_columns: List[str] = field(
-        default_factory=lambda: [
-            "application_category_name",
-            "application_name",
-            "dst_ip",
-            "dst_mac",
-            "dst_oui",
-            "src_ip",
-            "src_mac",
-            "src_oui",
         ]
     )
 
@@ -54,7 +70,12 @@ class DataConfig:
         self.processed_data_dir = Path(self.processed_data_dir)
         self.models_dir = Path(self.models_dir)
 
+        # Validate paths are relative to current directory
         for directory in [self.raw_data_dir, self.processed_data_dir, self.models_dir]:
+            if not directory.resolve().is_relative_to(Path.cwd()):
+                raise ValueError(
+                    f"Path {directory} must be relative to current directory"
+                )
             directory.mkdir(parents=True, exist_ok=True)
 
 
@@ -79,7 +100,15 @@ class Config:
         """Save configuration to JSON file."""
         import json
 
-        config_dict = {"data": self.data.__dict__, "model": self.model.__dict__}
+        config_dict = {
+            "data": {
+                **self.data.__dict__,
+                "processing": self.data.processing.__dict__,
+                "files": self.data.files.__dict__,
+            },
+            "model": self.model.__dict__,
+        }
+
         with open(path, "w") as f:
             json.dump(config_dict, f, indent=4, default=str)
 
@@ -91,9 +120,20 @@ class Config:
         with open(path, "r") as f:
             config_dict = json.load(f)
 
-        data_config = DataConfig(**config_dict["data"])
+        # Extract nested configs
+        processing_config = ProcessingConfig(
+            **config_dict["data"].pop("processing", {})
+        )
+        files_config = FileConfig(**config_dict["data"].pop("files", {}))
+
+        # Create data config with nested configs
+        data_config = DataConfig(
+            **config_dict["data"], processing=processing_config, files=files_config
+        )
         model_config = ModelConfig(**config_dict["model"])
+
         return cls(data=data_config, model=model_config)
 
 
+# Default configuration
 default_config = Config()

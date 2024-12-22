@@ -1,61 +1,93 @@
 #!/usr/bin/env python3
 
 """
-Retrain existing models with new data.
+Retrain existing models with new PCAP or CSV data.
 """
 
-# TO DO: Refactor
+import argparse
 from pathlib import Path
+from typing import List
 
-from src.data.preprocessor import DataPreprocessor
 from src.models.retrainer import ModelRetrainer
-from src.utils.constants import ATTACK_TYPES
 
 
-def main():
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Retrain an existing model with new data.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--model-path",
+        type=Path,
+        required=True,
+        help="Path to the existing model directory",
+    )
+
+    parser.add_argument(
+        "--input",
+        type=Path,
+        nargs="+",
+        required=True,
+        help="Path(s) to input PCAP or CSV file(s)",
+    )
+
+    parser.add_argument(
+        "--label",
+        type=int,
+        choices=[0, 1],
+        help="Label for the input data (0 for benign, 1 for malicious). Required for PCAP files.",
+    )
+
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        default=0.2,
+        help="Proportion of data to use for testing",
+    )
+
+    parser.add_argument(
+        "--random-state", type=int, default=42, help="Random state for reproducibility"
+    )
+
+    return parser.parse_args()
+
+
+def validate_inputs(paths: List[Path], label: int = None) -> None:
+    """Validate input files and arguments."""
+    for path in paths:
+        if not path.exists():
+            raise FileNotFoundError(f"Input file not found: {path}")
+
+        if path.suffix not in [".pcap", ".csv"]:
+            raise ValueError(f"Unsupported file type: {path.suffix}")
+
+        if path.suffix == ".pcap" and label is None:
+            raise ValueError("Label must be provided when using PCAP files")
+
+
+def main() -> None:
     """Main execution function."""
-    print("Loading preprocessed data...")
+    args = parse_arguments()
 
-    preprocessor = DataPreprocessor(
-        "data/raw/UNSW-NB15/Data.csv", "data/raw/UNSW-NB15/Label.csv"
+    if not args.model_path.exists():
+        raise FileNotFoundError(f"Model not found at {args.model_path}")
+
+    validate_inputs(args.input, args.label)
+
+    print(f"Loading model from: {args.model_path}")
+    retrainer = ModelRetrainer(args.model_path)
+
+    print("\nRetraining model...")
+    output_dir = retrainer.retrain_model(
+        input_paths=args.input,
+        label=args.label,
+        test_size=args.test_size,
+        random_state=args.random_state,
     )
 
-    X, y_binary, X_attacks, y_multiclass = preprocessor.prepare_datasets()
-
-    # Paths to the existing trained models - update these to your actual model paths
-    # The paths should point to the directories containing your trained models
-    # For now those are hardcoded, but later you can pass them as arguments
-    binary_model_path = Path("models/development/v1/binary/xgboost_20241210_155649_v1")
-    multiclass_model_path = Path(
-        "models/development/v1/multiclass/xgboost_20241210_155649_v1"
-    )
-
-    if not (binary_model_path / "model.json").exists():
-        raise FileNotFoundError(
-            f"Binary model not found at {binary_model_path / 'model.json'}"
-        )
-    if not (multiclass_model_path / "model.json").exists():
-        raise FileNotFoundError(
-            f"Multiclass model not found at {multiclass_model_path / 'model.json'}"
-        )
-
-    print("\nRetraining binary model...")
-    binary_retrainer = ModelRetrainer(binary_model_path)
-    binary_output_dir = binary_retrainer.retrain_model(
-        X,
-        y_binary,
-        labels=["Benign", "Malicious"],
-    )
-    print(f"Binary retrained model saved in: {binary_output_dir}")
-
-    print("\nRetraining multiclass model...")
-    multiclass_retrainer = ModelRetrainer(multiclass_model_path)
-    multiclass_output_dir = multiclass_retrainer.retrain_model(
-        X_attacks,
-        y_multiclass,
-        labels=ATTACK_TYPES,
-    )
-    print(f"Multiclass retrained model saved in: {multiclass_output_dir}")
+    print(f"\nRetrained model and artifacts saved in: {output_dir}")
 
 
 if __name__ == "__main__":

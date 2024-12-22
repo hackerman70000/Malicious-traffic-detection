@@ -16,6 +16,10 @@ OVERFITTING_COLUMNS = {
     "src_mac",
     "src_oui",
     "id",
+    "application_category_name",
+    "application_confidence",
+    "application_is_guessed",
+    "application_name",
 }
 
 

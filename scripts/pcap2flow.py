@@ -1,18 +1,33 @@
+#!/usr/bin/env python3
+
 import sys
 
 from nfstream import NFStreamer
 
-print(f"Processing file: {sys.argv[2]}")
 
-streamer = NFStreamer(source=sys.argv[2], statistical_analysis=True)
-flows = streamer.to_pandas()
-flows["label"] = int(sys.argv[1])
+def main():
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <label> <pcap_file>")
+        sys.exit(1)
 
-for col in flows.columns:
-    if flows[col].nunique() == 1 or flows[col].isnull().any():
-        flows.drop(col, inplace=True, axis=1)
+    label = int(sys.argv[1])
+    pcap_file = sys.argv[2]
 
-flows.to_csv(f"{sys.argv[2]}.csv", index=False)
+    print(f"Processing file: {pcap_file}")
 
-## Usage:
-## find ./pcaps/Dataset/Botnet-Capture -name '*.pcap' | xargs -n 1 uv run python ./pcap2flow2.py 1
+    streamer = NFStreamer(source=pcap_file, statistical_analysis=True)
+    flows = streamer.to_pandas()
+
+    flows["label"] = label
+
+    for col in flows.columns:
+        if flows[col].nunique() == 1 or flows[col].isnull().any():
+            flows.drop(col, inplace=True, axis=1)
+
+    output_csv = f"{pcap_file}.csv"
+    flows.to_csv(output_csv, index=False)
+    print(f"Output saved to: {output_csv}")
+
+
+if __name__ == "__main__":
+    main()

@@ -16,4 +16,5 @@ dependencies = [
     "psutil>=6.1.0",
     "dask>=2024.12.1",
     "graphviz>=0.20.3",
+    "tqdm>=4.67.1",
 ]

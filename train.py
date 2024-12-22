@@ -1,22 +1,27 @@
+import logging
 from pathlib import Path
 
-from configs.default import default_config
+from src.data.feature_processor import FeatureProcessor
 from src.models.trainer import ModelTrainer
+from src.utils.config import default_config
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def main():
     """Main execution function."""
-    # Create necessary directories
-    model_dir = Path("models/training/binary")
+
+    model_dir = Path("models/training")
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    # Initialize trainer with config
-    trainer = ModelTrainer(default_config)
+    feature_processor = FeatureProcessor(default_config)
+    trainer = ModelTrainer(default_config, feature_processor)
 
-    # Train binary classification model
     output_dir = trainer.train_model()
 
-    print(f"Binary classification results saved in: {output_dir}")
+    logging.info(f"Binary classification results saved in: {output_dir}")
 
 
 if __name__ == "__main__":

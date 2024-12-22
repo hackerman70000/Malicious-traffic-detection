@@ -1,262 +1,185 @@
+import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, precision_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 
-from src.utils.config import ModelConfig
-from src.utils.metadata import ModelMetadata
-from src.utils.visualization import plot_confusion_matrix
+from src.utils.visualization import (
+    plot_confusion_matrix,
+    plot_feature_importance,
+    plot_tree_visualization,
+)
 
 
 class ModelTrainer:
-    """Handles model training, evaluation, and result storage for binary classification."""
+    """Handles model training, evaluation, and artifact management."""
 
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config: "Config", feature_processor: "FeatureProcessor"):
         self.config = config
-        self.labels = ["Benign", "Malicious"]
-        self.data_path = "data/processed/merged_data.csv"
+        self.feature_processor = feature_processor
+        self.model: Optional[xgb.XGBClassifier] = None
+        self.training_metadata: Dict = {}
 
-        # Columns to drop (unique to either malicious or normal files)
-        self.columns_to_drop = [
-            "bidirectional_cwr_packets",
-            "bidirectional_ece_packets",
-            "bidirectional_urg_packets",
-            "dst2src_cwr_packets",
-            "dst2src_ece_packets",
-            "src2dst_cwr_packets",
-            "src2dst_ece_packets",
-            "src2dst_urg_packets",
-            "ip_version",
-            "tunnel_id",
-            "application_category_name",
-            "application_confidence",
-            "application_is_guessed",
-            "application_name",
-        ]
-
-        self.categorical_columns = [
-            "application_category_name",
-            "application_name",
-            "dst_ip",
-            "dst_mac",
-            "dst_oui",
-            "src_ip",
-            "src_mac",
-            "src_oui",
-        ]
-        self.label_encoders = {}
-        self.dropped_columns: List[str] = []  # Track actually dropped columns
-
-    def create_output_directory(self) -> Path:
-        """Create timestamped output directory for model artifacts."""
+    def _create_output_directory(self) -> Tuple[Path, Dict[str, Path]]:
+        """Create timestamped output directory for model artifacts with subdirectories."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path("models/training/binary") / f"xgboost_{timestamp}_v1"
+        output_dir = (
+            self.config.data.models_dir / "training" / f"xgboost_{timestamp}_v1"
+        )
+
         output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir
 
-    def create_model_metadata(
-        self,
-        model: xgb.XGBClassifier,
-        X_train: pd.DataFrame,
-        X_test: pd.DataFrame,
-        performance_metrics: Dict,
-    ) -> ModelMetadata:
-        """Create metadata for trained model."""
-        return ModelMetadata(
-            model_type="binary",
-            framework_version=xgb.__version__,
-            training_date=datetime.now().isoformat(),
-            model_version=datetime.now().strftime("%Y.%m.%d"),
-            input_features=X_train.shape[1],
-            training_samples=X_train.shape[0],
-            test_samples=X_test.shape[0],
-            performance_metrics=performance_metrics,
-            model_parameters=model.get_params(),
-            additional_info={
-                "description": "XGBoost binary classifier for network traffic analysis",
-                "feature_names": list(X_train.columns),
-                "target_labels": self.labels,
-                "categorical_features": self.categorical_columns,
-                "dropped_columns": self.dropped_columns,
-            },
-        )
+        subdirs = {
+            "model": output_dir / "model",
+            "metrics": output_dir / "metrics",
+            "plots": output_dir / "plots",
+            "plots/trees": output_dir / "plots/trees",
+        }
 
-    def encode_categorical_features(
-        self, df: pd.DataFrame, training: bool = True
-    ) -> pd.DataFrame:
-        """Encode categorical features using LabelEncoder."""
-        df = df.copy()
+        for dir_path in subdirs.values():
+            dir_path.mkdir(parents=True, exist_ok=True)
 
-        for column in self.categorical_columns:
-            if column in df.columns:
-                if training:
-                    # During training, fit new encoder
-                    self.label_encoders[column] = LabelEncoder()
-                    # Handle NaN values before encoding
-                    df[column] = df[column].fillna("unknown")
-                    df[column] = self.label_encoders[column].fit_transform(df[column])
-                else:
-                    # During inference, use existing encoder
-                    df[column] = df[column].fillna("unknown")
-                    known_values = set(self.label_encoders[column].classes_)
-                    df[column] = df[column].map(
-                        lambda x: "unknown" if x not in known_values else x
-                    )
-                    df[column] = self.label_encoders[column].transform(df[column])
+        return output_dir, subdirs
 
-        return df
+    def _prepare_training_data(
+        self, data_path: Path
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+        """Load and prepare data for training."""
+        logging.info(f"Loading data from {data_path}")
+        df = pd.read_csv(data_path)
 
-    def prepare_data(self) -> Tuple[pd.DataFrame, pd.Series]:
-        """Load and prepare the dataset."""
-        print("Loading data...")
-        data = pd.read_csv(self.data_path)
-        print(f"Initial data shape: {data.shape}")
+        X, y = self.feature_processor.prepare_features(df, training=True)
 
-        # Drop columns that are unique to either malicious or normal files
-        print(f"Dropping {len(self.columns_to_drop)} columns...")
-        self.dropped_columns = []  # Reset dropped columns list
-        for col in self.columns_to_drop:
-            if col in data.columns:
-                data = data.drop(col, axis=1)
-                self.dropped_columns.append(col)
-        print(f"Dropped columns: {self.dropped_columns}")
-
-        # Separate features and target
-        X = data.drop("Label", axis=1)
-        y = data["Label"]
-
-        # Handle categorical features
-        print("Encoding categorical features...")
-        X = self.encode_categorical_features(X, training=True)
-
-        # Convert all columns to float32 for better memory usage
-        X = X.astype(np.float32)
-
-        print(f"Final data shape: {X.shape}")
-        print(f"Class distribution:\n{y.value_counts(normalize=True)}")
-
-        return X, y
-
-    def save_tree_visualization(
-        self, model: xgb.XGBClassifier, output_dir: Path, num_trees: int = 3
-    ):
-        """Save visualization of the first few decision trees."""
-        import matplotlib.pyplot as plt
-        from xgboost import plot_tree
-
-        print(f"\nSaving tree visualizations for first {num_trees} trees...")
-
-        for i in range(min(num_trees, model.n_estimators)):
-            plt.figure(figsize=(20, 10))
-            plot_tree(model, num_trees=i)
-            plt.title(f"Decision Tree {i}")
-            plt.savefig(output_dir / f"tree_{i}.png", dpi=300, bbox_inches="tight")
-            plt.close()
-
-        # Also save feature importance plot
-        plt.figure(figsize=(12, 6))
-        feature_importance = pd.DataFrame(
-            {
-                "feature": model.feature_names_in_,
-                "importance": model.feature_importances_,
-            }
-        ).sort_values("importance", ascending=False)
-
-        plt.barh(
-            feature_importance["feature"][:20], feature_importance["importance"][:20]
-        )
-        plt.title("Top 20 Feature Importance")
-        plt.xlabel("F-score")
-        plt.tight_layout()
-        plt.savefig(output_dir / "feature_importance.png", dpi=300, bbox_inches="tight")
-        plt.close()
-
-    def train_model(self) -> Path:
-        """Train, evaluate, and save model results."""
-        output_dir = self.create_output_directory()
-
-        # Prepare data
-        X, y = self.prepare_data()
-
-        # Split data
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
-            test_size=self.config.test_size,
-            random_state=self.config.random_state,
+            test_size=self.config.data.test_size,
+            random_state=self.config.data.random_state,
             stratify=y,
         )
 
-        print(f"Training data shape: {X_train.shape}")
-        print(f"Testing data shape: {X_test.shape}")
+        return X_train, X_test, y_train, y_test
 
-        # Initialize and train model
-        print("Training model...")
-        model = xgb.XGBClassifier(**self.config.model_params)
-        model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=True)
+    def _train_model(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
+    ) -> xgb.XGBClassifier:
+        """Train the XGBoost model with early stopping."""
+        logging.info("Training model...")
 
-        # Make predictions
-        print("Making predictions...")
-        predictions = model.predict(X_test)
-
-        # Calculate metrics
-        cm = confusion_matrix(y_test, predictions)
-        report = classification_report(
-            y_test, predictions, target_names=self.labels, output_dict=True
-        )
-        report_text = classification_report(
-            y_test, predictions, target_names=self.labels
-        )
-
-        precision = precision_score(y_test, predictions, average="macro")
-        print(f"\nBinary Model Precision: {precision:.2%}")
-
-        # Create and save metadata
-        metadata = self.create_model_metadata(
-            model=model,
-            X_train=X_train,
-            X_test=X_test,
-            performance_metrics=report,
-        )
-        metadata.save(output_dir)
-
-        # Save model
-        model.save_model(output_dir / "model.json")
-
-        # Save label encoders
-        pd.to_pickle(self.label_encoders, output_dir / "label_encoders.pkl")
-
-        # Save confusion matrix plot
-        plot_confusion_matrix(
-            cm,
-            self.labels,
-            "Binary Classification Confusion Matrix",
-            output_dir / "confusion_matrix.png",
+        self.model = xgb.XGBClassifier(
+            objective="binary:logistic",
+            use_label_encoder=False,
+            n_estimators=1000,
+            eval_metric=["error", "auc", "logloss"],
+            early_stopping_rounds=10,
         )
 
-        # Save classification report
-        with open(output_dir / "report.txt", "w") as f:
+        self.model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=True)
+
+        if hasattr(self.model, "best_iteration"):
+            logging.info(f"Best iteration: {self.model.best_iteration}")
+            logging.info(f"Best score: {self.model.best_score}")
+
+        return self.model
+
+    def _save_artifacts(
+        self,
+        output_dir: Path,
+        subdirs: Dict[str, Path],
+        model: xgb.XGBClassifier,
+        metrics: Dict,
+        X_train: pd.DataFrame,
+    ) -> None:
+        """Save all model artifacts and metadata in organized subdirectories."""
+
+        model.save_model(subdirs["model"] / "model.json")
+        self.feature_processor.save_encoders(subdirs["model"])
+
+        metadata = {
+            "model_type": self.config.model.model_type,
+            "framework_version": xgb.__version__,
+            "training_date": datetime.now().isoformat(),
+            "model_version": datetime.now().strftime("%Y.%m.%d"),
+            "input_features": X_train.shape[1],
+            "training_samples": X_train.shape[0],
+            "performance_metrics": metrics["classification_report"],
+            "model_parameters": self.model.get_params(),
+            "feature_names": list(X_train.columns),
+        }
+
+        if hasattr(self.model, "best_iteration"):
+            metadata["early_stopping"] = {
+                "best_iteration": self.model.best_iteration,
+                "best_score": self.model.best_score,
+                "early_stopping_rounds": 10,
+            }
+
+        with open(subdirs["metrics"] / "metadata.json", "w") as f:
+            import json
+
+            json.dump(metadata, f, indent=4, default=str)
+
+        with open(subdirs["metrics"] / "report.txt", "w") as f:
             f.write("XGBoost Binary Classification Results\n")
             f.write("=" * 35 + "\n\n")
-            f.write(f"Dropped columns: {self.dropped_columns}\n\n")
-            f.write(report_text)
+            f.write(f"Dropped columns: {self.feature_processor.dropped_columns}\n\n")
+            f.write(
+                classification_report(
+                    metrics["y_test"],
+                    metrics["predictions"],
+                    target_names=self.config.model.labels,
+                )
+            )
 
-        self.save_tree_visualization(model, output_dir)
+    def train_model(self) -> Path:
+        """Train, evaluate, and save the model with all artifacts."""
+        output_dir, subdirs = self._create_output_directory()
 
-        # Create visualization directory for more detailed tree info
-        viz_dir = output_dir / "tree_viz"
-        viz_dir.mkdir(exist_ok=True)
+        data_path = self.config.data.processed_data_dir / "merged_data.csv"
+        X_train, X_test, y_train, y_test = self._prepare_training_data(data_path)
 
-        # Save detailed tree structure as text
-        for i in range(min(3, model.n_estimators)):
-            tree_dump = model.get_booster().get_dump(dump_format="text")[i]
-            with open(viz_dir / f"tree_{i}_structure.txt", "w") as f:
-                f.write(tree_dump)
+        model = self._train_model(X_train, y_train, X_test, y_test)
+
+        predictions = model.predict(X_test)
+        metrics = {
+            "confusion_matrix": confusion_matrix(y_test, predictions),
+            "classification_report": classification_report(
+                y_test,
+                predictions,
+                target_names=self.config.model.labels,
+                output_dict=True,
+            ),
+            "precision_score": precision_score(y_test, predictions, average="macro"),
+            "y_test": y_test,
+            "predictions": predictions,
+        }
+
+        logging.info(f"Model Precision: {metrics['precision_score']:.2%}")
+
+        self._save_artifacts(output_dir, subdirs, model, metrics, X_train)
+
+        plot_confusion_matrix(
+            metrics["confusion_matrix"],
+            self.config.model.labels,
+            "Binary Classification Confusion Matrix",
+            subdirs["plots"] / "confusion_matrix.png",
+        )
+
+        plot_feature_importance(
+            model,
+            X_train.columns,
+            subdirs["plots"] / "feature_importance.png",
+            top_n=20,
+        )
+
+        plot_tree_visualization(model, subdirs["plots/trees"], num_trees=3)
 
         return output_dir

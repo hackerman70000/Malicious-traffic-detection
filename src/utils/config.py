@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 
 @dataclass
@@ -84,6 +84,20 @@ class ModelConfig:
     model_type: str = "binary"
     framework: str = "xgboost"
     labels: List[str] = field(default_factory=lambda: ["Benign", "Malicious"])
+
+    objective: str = "binary:logistic"
+    n_estimators: Union[int, str] = 100
+    max_depth: Union[int, str] = 4
+    learning_rate: Union[float, str] = "default"
+    subsample: Union[float, str] = "default"
+    colsample_bytree: Union[float, str] = "default"
+    min_child_weight: Union[float, str] = "default"
+    gamma: Union[float, str] = "default"
+    reg_alpha: Union[float, str] = "default"
+    reg_lambda: Union[float, str] = "default"
+    early_stopping_rounds: int = 10
+    eval_metric: List[str] = field(default_factory=lambda: ["error", "auc", "logloss"])
+    verbose: bool = False
 
 
 @dataclass

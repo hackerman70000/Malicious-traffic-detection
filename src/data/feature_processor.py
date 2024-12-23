@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
@@ -153,16 +154,28 @@ class FeatureProcessor:
 
         df = df.copy()
 
-        if training:
-            columns_to_drop = set(self.config.data.columns_to_drop)
-            available_columns = set(df.columns)
-            columns_to_actually_drop = columns_to_drop.intersection(available_columns)
-            if not columns_to_actually_drop:
-                logging.warning(
-                    "No columns from config.data.columns_to_drop found in the dataset"
-                )
+        if training and self.config.data.processing.target_benign_ratio:
+            logging.info(
+                f"Adjusting benign ratio to {self.config.data.processing.target_benign_ratio}"
+            )
+            benign_mask = df["Label"] == 0
+            benign_count = benign_mask.sum()
+            malicious_count = (~benign_mask).sum()
 
-        df = self._handle_missing_values(df)
+            desired_benign = int(
+                (malicious_count * self.config.data.processing.target_benign_ratio)
+                / (1 - self.config.data.processing.target_benign_ratio)
+            )
+
+            if benign_count > desired_benign:
+                benign_indices = df[benign_mask].index
+                drop_indices = np.random.choice(
+                    benign_indices, size=benign_count - desired_benign, replace=False
+                )
+                df = df.drop(drop_indices)
+                logging.info(
+                    f"Downsampled benign traffic from {benign_count} to {desired_benign}"
+                )
 
         y = None
         if "Label" in df.columns:
@@ -180,6 +193,8 @@ class FeatureProcessor:
 
         logging.info(f"Feature preparation completed. Final shape: {X.shape}")
         if y is not None:
-            logging.info(f"Class distribution:\n{y.value_counts(normalize=True)}")
+            dist = y.value_counts(normalize=True)
+            for label, ratio in dist.items():
+                logging.info(f"Label {label}: {ratio:.1%}")
 
         return X, y

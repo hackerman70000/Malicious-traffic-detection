@@ -1,0 +1,13 @@
+XGBoost Classification Results
+=====================================================
+
+Dropped columns: []
+
+              precision    recall  f1-score   support
+
+      Benign       1.00      1.00      1.00     86057
+   Malicious       1.00      1.00      1.00     36881
+
+    accuracy                           1.00    122938
+   macro avg       1.00      1.00      1.00    122938
+weighted avg       1.00      1.00      1.00    122938

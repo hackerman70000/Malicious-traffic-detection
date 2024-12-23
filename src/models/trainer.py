@@ -166,8 +166,8 @@ class ModelTrainer:
             json.dump(metadata, f, indent=4, default=str)
 
         with open(subdirs["metrics"] / "report.txt", "w") as f:
-            f.write("XGBoost Binary Classification Results\n")
-            f.write("=" * 35 + "\n\n")
+            f.write("XGBoost Classification Results\n")
+            f.write("=" * 53 + "\n\n")
             f.write(f"Dropped columns: {self.feature_processor.dropped_columns}\n\n")
             f.write(
                 classification_report(

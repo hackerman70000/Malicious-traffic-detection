@@ -20,4 +20,6 @@ dependencies = [
     "typer>=0.15.1",
     "click>=8.1.7",
     "rich>=13.9.4",
+    "greynoise>=2.3.0",
+    "spyip>=0.3.0",
 ]

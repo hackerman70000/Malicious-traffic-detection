@@ -23,4 +23,5 @@ dependencies = [
     "greynoise>=2.3.0",
     "spyip>=0.3.0",
     "pydantic-typer>=0.0.13",
+    "rich-dataframe2>=0.2.1",
 ]

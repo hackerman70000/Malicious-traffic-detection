@@ -43,52 +43,39 @@ Train a new model:
 uv run -m scripts.train
 ```
 
-#### Training existing model with new data
+#### Training Existing Model with New Data
 
-Train an existing model with new data, creating a new versioned model:
-
-```sh
-uv run -m scripts.retrain \
-  --model-path <path_to_model_directory> \
-  --input <path_to_input_file> \
-  --label <0_or_1>
-```
-
-Example:
-
-```sh
-# Train with new malicious traffic
-uv run -m scripts.retrain \
-  --model-path models/development/xgboost_20241222_225105_v1 \
-  --input data/raw/malicious/traffic.pcap \
-  --label 1
-
-# Train with new benign traffic
-uv run -m scripts.retrain \
-  --model-path models/development/xgboost_20241222_225105_v1 \
-  --input data/raw/normal/traffic.pcap \
-  --label 0
-```
-
-Additional retraining options:
+Train an existing model with new data to create a versioned update. Input CSVs must include a binary 'Label' column (0 = benign, 1 = malicious).
 
 ```sh
 uv run -m scripts.retrain --help
 
 options:
-  -h, --help            show this help message and exit
+  -h, --help            Show this help message and exit
   --model-path MODEL_PATH
                         Path to the existing model directory
   --input INPUT [INPUT ...]
-                        Path(s) to input PCAP or CSV file(s)
-  --label {0,1}         Label for the input data (0 for benign, 1 for malicious)
+                        Path(s) to input CSV file(s) with a 'Label' column (0 or 1)
   --test-size TEST_SIZE
-                        Proportion of data to use for testing (default: 0.2)
+                        Proportion of data for testing (default: 0.2)
   --random-state RANDOM_STATE
                         Random state for reproducibility (default: 42)
 ```
 
-Note: When training with new data, the model version (v1, v2, etc.) is automatically incremented. The newly trained model and its artifacts are saved in a new directory with the updated version number.
+Example:
+
+```sh
+uv run -m scripts.retrain \
+  --model-path models/development/xgboost_20241222_225105_v1 \
+  --input data/processed/combined_flows.csv
+```
+
+**Key Notes:**
+
+- Input CSVs must include binary 'Label' column (0 = benign, 1 = malicious).
+- Training data must have both benign (0) and malicious (1) samples.
+- Model versions increment automatically (v1 → v2, etc.).
+- Trained model and artifacts save in a new versioned directory.
 
 ## Development
 

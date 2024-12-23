@@ -2,11 +2,10 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 import pandas as pd
 import xgboost as xgb
-from nfstream import NFStreamer
 from sklearn.metrics import classification_report, confusion_matrix, precision_score
 from sklearn.model_selection import train_test_split
 
@@ -14,7 +13,7 @@ from src.utils.visualization import plot_confusion_matrix
 
 
 class ModelRetrainer:
-    """Handles retraining of an existing model with new PCAP or CSV data."""
+    """Handles retraining of an existing model with labeled CSV data."""
 
     def __init__(self, model_path: Path):
         """Load existing model and metadata from the given path."""
@@ -62,108 +61,88 @@ class ModelRetrainer:
         print(f"Creating output directory for retrained model: {output_dir}")
         return output_dir, version_str
 
-    def process_pcap(self, pcap_file: Path, label: int) -> pd.DataFrame:
-        """Process PCAP file using NFStream and extract relevant features."""
-        print(f"Processing PCAP file: {pcap_file}")
-
-        streamer = NFStreamer(source=str(pcap_file), statistical_analysis=True)
-        df = streamer.to_pandas()
-
-        df["Label"] = label
-
-        available_features = set(df.columns) & set(self.feature_names)
-        missing_features = set(self.feature_names) - available_features
-
-        if missing_features:
-            raise ValueError(
-                f"Missing required features in PCAP data: {missing_features}\n"
-                f"These features were used in original model training but are not present in the new data."
-            )
-
-        return df[self.feature_names]
-
-    def prepare_data(
-        self, input_path: Union[Path, List[Path]], label: Optional[int] = None
-    ) -> pd.DataFrame:
-        """Prepare data from PCAP or CSV files for retraining."""
+    def prepare_data(self, input_path: Union[Path, List[Path]]) -> pd.DataFrame:
+        """Prepare data from CSV files for retraining."""
         if isinstance(input_path, list):
             dfs = []
             for path in input_path:
-                if path.suffix == ".pcap":
-                    if label is None:
-                        raise ValueError("Label must be provided for PCAP files")
-                    df = self.process_pcap(path, label)
-                else:
-                    df = pd.read_csv(path)
+                df = pd.read_csv(path)
+
+                if "Label" not in df.columns:
+                    raise ValueError(f"Required 'Label' column not found in {path}")
+
+                invalid_labels = set(df["Label"].unique()) - {0, 1}
+                if invalid_labels:
+                    raise ValueError(
+                        f"Invalid labels found in {path}: {invalid_labels}. "
+                        "Labels must be binary (0 or 1)"
+                    )
                 dfs.append(df)
             final_df = pd.concat(dfs, ignore_index=True)
         else:
-            if input_path.suffix == ".pcap":
-                if label is None:
-                    raise ValueError("Label must be provided for PCAP files")
-                final_df = self.process_pcap(input_path, label)
-            else:
-                final_df = pd.read_csv(input_path)
+            final_df = pd.read_csv(input_path)
+            if "Label" not in final_df.columns:
+                raise ValueError(f"Required 'Label' column not found in {input_path}")
+
+            invalid_labels = set(final_df["Label"].unique()) - {0, 1}
+            if invalid_labels:
+                raise ValueError(
+                    f"Invalid labels found in {input_path}: {invalid_labels}. "
+                    "Labels must be binary (0 or 1)"
+                )
 
         missing_cols = set(self.feature_names) - set(final_df.columns)
         if missing_cols:
             raise ValueError(f"Missing required features in input data: {missing_cols}")
 
-        return final_df[self.feature_names]
+        return final_df[self.feature_names + ["Label"]]
 
     def retrain_model(
         self,
         input_paths: Union[Path, List[Path]],
-        label: Optional[int] = None,
         test_size: float = 0.2,
         random_state: int = 42,
     ) -> Path:
         """Retrain an existing model with new data and save all artifacts."""
-        X = self.prepare_data(input_paths, label)
+        data = self.prepare_data(input_paths)
 
-        if "Label" in X.columns:
-            y = X.pop("Label")
-        else:
-            if label is None:
-                raise ValueError("No labels found in data and no label provided")
-            y = pd.Series([label] * len(X))
+        unique_labels = data["Label"].unique()
+        if len(unique_labels) < 2:
+            raise ValueError(
+                f"Training data contains only one class ({unique_labels[0]}). "
+                "Both benign (0) and malicious (1) samples are required for training."
+            )
+
+        y = data.pop("Label")
+        X = data
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
+            X, y, test_size=test_size, random_state=random_state, stratify=y
         )
 
-        print(f"Retraining model: {self.model_path}")
+        print(f"Training data distribution:\n{y_train.value_counts(normalize=True)}")
+        print(f"Testing data distribution:\n{y_test.value_counts(normalize=True)}")
+
+        print(f"\nRetraining model: {self.model_path}")
         self.model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
 
         predictions = self.model.predict(X_test)
-        unique_classes = sorted(set(y_test) | set(predictions))
-        labels = (
-            ["Benign", "Malicious"]
-            if len(unique_classes) > 1
-            else ["Benign" if 0 in unique_classes else "Malicious"]
-        )
+        labels = ["Benign", "Malicious"]
 
-        cm = confusion_matrix(
-            y_test, predictions, labels=[0] if 0 in unique_classes else [1]
-        )
-
+        cm = confusion_matrix(y_test, predictions)
         report = classification_report(
             y_test,
             predictions,
             target_names=labels,
-            labels=[0] if 0 in unique_classes else [1],
             output_dict=True,
         )
         report_text = classification_report(
             y_test,
             predictions,
             target_names=labels,
-            labels=[0] if 0 in unique_classes else [1],
         )
 
-        precision = precision_score(
-            y_test, predictions, average="binary", zero_division=1
-        )
+        precision = precision_score(y_test, predictions, average="binary")
         print(f"\nPrecision Score: {precision:.2%}")
 
         output_dir, version = self.create_output_directory()
@@ -188,6 +167,10 @@ class ModelRetrainer:
                 "retraining_samples": len(X),
                 "test_size": test_size,
                 "random_state": random_state,
+                "class_distribution": {
+                    "training": y_train.value_counts().to_dict(),
+                    "testing": y_test.value_counts().to_dict(),
+                },
             }
         )
 
@@ -203,7 +186,7 @@ class ModelRetrainer:
             cm,
             labels,
             f"Confusion Matrix ({self.model_path.parent.name})",
-            output_dir / "confusion_matrix.png",
+            output_dir / "plots" / "confusion_matrix.png",
         )
 
         print(f"Retrained model saved at: {output_dir}")

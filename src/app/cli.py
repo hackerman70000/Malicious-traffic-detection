@@ -2,6 +2,7 @@ from mimetypes import read_mime_types
 from pathlib import Path
 import socket
 from typing import Optional
+import pydantic_typer
 import typer
 from click import Path as ClickPath
 from click.shell_completion import CompletionItem
@@ -9,7 +10,7 @@ from typing_extensions import Annotated
 
 from src.app.processor import TrafficProcessor
 
-app = typer.Typer()
+app = pydantic_typer.Typer()
 
 class SourceParser(ClickPath):
     name = "fileOrInterface"

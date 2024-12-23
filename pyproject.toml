@@ -22,4 +22,5 @@ dependencies = [
     "rich>=13.9.4",
     "greynoise>=2.3.0",
     "spyip>=0.3.0",
+    "pydantic-typer>=0.0.13",
 ]

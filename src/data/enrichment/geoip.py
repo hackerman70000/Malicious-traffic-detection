@@ -3,8 +3,6 @@ from nfstream import NFPlugin
 from spyip import trace_ip
 
 class GeoIpEnrichment(NFPlugin):
-    def __init__(self):
-        self.cache 
     def on_init(self, packet, flow):
         flow.udps.enrichments = flow.udps.enrichments or {}
         flow.udps.enrichments["geoip"] = {}

@@ -13,8 +13,8 @@ class Plugins:
     def __init__(self, plugins: Optional[Iterable[NFPlugin]] = None):
         self.plugins = set(map(lambda c: c(), set(plugins))) if plugins else set()
 
-    def load_plugin_dir(self, dir: Path):
-        dir = dir or Path(__file__).parent.parent / "plugins"
+    def load_plugin_dir(self, dir: Optional[Path] = None):
+        dir = dir or Path(__file__).parent.parent.parent / "plugins"
         if dir.is_file():
             try:
                 plugin = importlib.util.module_from_spec(importlib.util.spec_from_file_location(dir.stem, dir))
@@ -30,7 +30,7 @@ class Plugins:
                     print(f"Failed to load plugin {path}: {e}")
             elif path.is_dir():
                 self.load_plugin_dir(path)
-    def load_prefixed_plugins(self, prefix: str):
+    def load_prefixed_plugins(self, prefix: Optional[str] = None):
         new_plugins = [importlib.import_module(name)
             for _, name, _
             in pkgutil.iter_modules()

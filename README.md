@@ -33,17 +33,43 @@ Run data preprocessing from project root:
 uv run -m scripts.preprocess_data
 ```
 
-### Model training and retraining
+### Model training
 
 #### Initial training
 
-Train a new model:
+Train a new model with default configuration:
 
 ```sh
 uv run -m scripts.train
 ```
 
-#### Training Existing Model with New Data
+Training options:
+
+```
+uv run -m scripts.train --help
+
+options:
+  -h, --help            show this help message and exit
+  --input INPUT         Path to input CSV file with training data (default: None)
+  --raw-data-dir RAW_DATA_DIR
+                        Directory containing raw data files (default: data/raw)
+  --processed-data-dir PROCESSED_DATA_DIR
+                        Directory for processed data files (default: data/processed)
+  --models-dir MODELS_DIR
+                        Directory for saving model artifacts (default: models)
+  --test-size TEST_SIZE
+                        Proportion of data to use for testing (default: 0.2)
+  --random-state RANDOM_STATE
+                        Random state for reproducibility (default: 42)
+  --target-benign-ratio TARGET_BENIGN_RATIO
+                        Target ratio of benign traffic in the dataset (default: 0.7)
+  --min-class-ratio MIN_CLASS_RATIO
+                        Minimum acceptable ratio for any class (default: 0.1)
+  --model-name MODEL_NAME
+                        Name of the model (default: xgboost_binary)
+```
+
+#### Training existing model with new data
 
 Train an existing model with new data to create a versioned update. Input CSVs must include a binary 'Label' column (0 = benign, 1 = malicious).
 
@@ -70,7 +96,7 @@ uv run -m scripts.retrain \
   --input data/processed/combined_flows.csv
 ```
 
-**Key Notes:**
+**Notes:**
 
 - Input CSVs must include binary 'Label' column (0 = benign, 1 = malicious).
 - Training data must have both benign (0) and malicious (1) samples.
@@ -81,4 +107,4 @@ uv run -m scripts.retrain \
 
 ### Package management
 
-[uv: Python packaging in Rust](https://github.com/astral-sh/uv)
+<https://github.com/astral-sh/uv>

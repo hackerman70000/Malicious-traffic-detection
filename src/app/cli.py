@@ -39,8 +39,9 @@ def complete_intfname(incomplete: str):
 def main(
     source: Annotated[Optional[Path | str], typer.Option(click_type=SourceParser)],
     plugins: Optional[list[Path]] = typer.Option(None, help="Directories or files to load plugins from"),
+    sigma_paths: Optional[list[Path]] = typer.Option(None, help="Directories or files to load sigma rules from"),
    ):
-    tp = TrafficProcessor(source, plugin_dirs=plugins)
+    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths)
     
     tp.process()
 

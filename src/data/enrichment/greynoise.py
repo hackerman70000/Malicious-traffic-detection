@@ -18,6 +18,6 @@ class GreyNoiseEnrichment(NFPlugin):
                 result = self.greynoise.quick(packet.src_ip)
                 flow.udps.enrichments["greynoise"][packet.src_ip] = result
                 if result and isinstance(result, dict) and not result["noise"]:
-                    flow.udps.detections[packet.src_ip] += 1
+                    flow.udps.detections[packet.src_ip] = flow.udps.detections.get(packet.src_ip, 0) + 1
             except Exception as e:
                 flow.udps.enrichments["greynoise"][packet.src_ip] = {"error": str(e)}

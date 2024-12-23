@@ -8,6 +8,7 @@ from nfstream import NFStreamer, NFPlugin
 import pandas as pd
 
 from src.app.plugins import Plugins
+from src.data.detections.sigma import SigmaDetections
 from src.data.enrichment.geoip import GeoIpEnrichment
 from src.data.enrichment.greynoise import GreyNoiseEnrichment
 from rich_dataframe import prettify
@@ -24,6 +25,7 @@ class TrafficProcessor():
         self.plugins.add_plugins([
             GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
             GeoIpEnrichment(),
+            SigmaDetections(sigma_paths=kwargs.get("sigma_paths"))
         ])
         self.plugins.load_plugin_dir()
         for plugin_dir in plugin_dirs or []:

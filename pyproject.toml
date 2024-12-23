@@ -24,4 +24,6 @@ dependencies = [
     "spyip>=0.3.0",
     "pydantic-typer>=0.0.13",
     "rich-dataframe2>=0.2.1",
+    "pysigma>=0.11.18",
+    "pysigma-backend-pd-df>=0.3.0",
 ]

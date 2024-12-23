@@ -17,7 +17,7 @@ class TrafficProcessor():
             self.plugins.load_plugin_dir(plugin_dir)
         self.plugins.load_prefixed_plugins()
 
-        self.streamer = NFStreamer(source, statistical_analysis=True, plugins=self.plugins)
+        self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins)
     
     def setup_plugins(self):
         self.streamer.udps = self.plugins

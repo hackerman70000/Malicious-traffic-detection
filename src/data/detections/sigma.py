@@ -5,7 +5,7 @@ import pandas as pd
 from sigma.collection import SigmaCollection
 from sigma.backends.pd_df.pd_df import PandasDataFramePythonBackend
 class SigmaDetections(NFPlugin):
-    def __init__(self, sigma_paths: Optional[List[str,Path]]=None, **kwargs):
+    def __init__(self, sigma_paths: Optional[List[Path]]=None, **kwargs):
         if sigma_paths is not None:
             self.collection = SigmaCollection()
             self.collection.load_ruleset(sigma_paths)
@@ -15,12 +15,13 @@ class SigmaDetections(NFPlugin):
     def on_init(self, packet, flow):
         flow.udps.enrichments = flow.udps.enrichments if hasattr(flow.udps, "enrichments") else {}
         flow.udps.enrichments["sigma"] = {}
-        flow.udps.detections = flow.udps.detections if hasattr(flow.udps, "detections") else {}
+        flow.udps.detections = flow.udps.detections if hasattr(flow.udps, "detections") else 0
         self.on_update(packet, flow)
     def on_expire(self, flow):
         if len(self.sigma) > 0:
             df = pd.DataFrame.from_records(flow)
             for query in self.sigma:
                 if query(df).size > 0:
-                    flow.udps.detections["sigma"] = flow.udps.detections.get("sigma", 0) + 1
+                    flow.udps.detection += 1
+                    flow.udps.enrichments["sigma"][query.__name__] = True
                     break

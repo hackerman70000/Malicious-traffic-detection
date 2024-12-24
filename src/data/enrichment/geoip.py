@@ -19,6 +19,8 @@ class GeoIpEnrichment(NFPlugin):
         if packet.src_ip not in flow.udps.enrichments["geoip"]:
             result = GeoIpEnrichment._get_geoip(packet.src_ip)
             if result.status == "success":
-                flow.udps.enrichments["geoip"][packet.src_ip] = result
+                flow.udps.enrichments["geoip"][str(packet.src_ip)] = result.json()
+            else:
+                flow.udps.enrichments["geoip"][str(packet.src_ip)] = vars(result)
     def cleanup(self):
         GeoIpEnrichment._get_geoip.cache_clear()

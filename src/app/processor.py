@@ -23,7 +23,7 @@ class TrafficProcessor():
     def __init__(self, source: Path | str, plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, **kwargs):
         self.plugins = Plugins(plugins)
         self.plugins.add_plugins([
-            GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
+            # GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
             GeoIpEnrichment(),
             SigmaDetections(sigma_paths=kwargs.get("sigma_paths"))
         ])
@@ -37,13 +37,18 @@ class TrafficProcessor():
         self.streamer.udps = self.plugins
 
     def process(self):
-        try:
-            data = self.to_pandas()
-        except Exception as e:
-            print(f"Failed to process data: {e}")
-            raise e
-        print(prettify(data))
-    
+        for flow in self.streamer:
+            self.report(pd.DataFrame.from_records([flow.values()], columns=flow.keys()))
+        
+        self.report(self.to_pandas())
+        
+    def report(self, pd):
+        by_ip = pd.groupby("src_ip")
+        print(prettify(by_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "bidirectional_mean_ps": "sum", "dst2src_first_seen_ms": ["min", "max"], "dst2src_last_seen_ms": ["min", "max"], "udps.detections": "sum"}), clear_console=False, delay_time=0.1))
+
+        print(prettify(by_ip.agg({
+            "udps.enrichments": "first"
+        }), col_limit=20, clear_console=False, delay_time=0.1))
 
     def to_pandas(self):
         """ fixed streamer to pandas function (added escapechar) """

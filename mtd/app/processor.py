@@ -36,7 +36,7 @@ class TrafficProcessor():
     def __init__(self, source: Path | str, default_plugins: Iterable[str], plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, output: Optional[Path] = None, **kwargs):
         self.plugins = Plugins(plugins)
         self.plugins.add_plugins(value for key, value in{
-            # GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
+            "GreyNoise": GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
             "GeoIP": GeoIpEnrichment(),
             "Sigma": SigmaDetections(sigma_paths=kwargs.get("sigma_paths")),
             "ML": XGBoostPredictions(model_path=kwargs.get("model_path")),

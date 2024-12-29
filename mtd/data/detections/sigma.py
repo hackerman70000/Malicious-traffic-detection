@@ -21,14 +21,14 @@ class SigmaDetections(NFPlugin):
         self.on_update(packet, flow)
     def on_expire(self, flow):
         if len(self.sigma) > 0:
-            df = pd.DataFrame(flow.values(), index=flow.keys()).transpose()
+            df = pd.DataFrame(flow.values(), index=flow.keys()).transpose().convert_dtypes()
             for query in self.sigma:
                 try:
                     if query[1](df).size > 0:
-                        flow.udps.detection += 1
+                        flow.udps.detections += 1
                         flow.udps.enrichments["sigma"][query[0].title] = {
                             "detected": True,
-                            "query": query[0],
+                            "query": query[0].to_dict(),
                             "error": None
                         }
                         break

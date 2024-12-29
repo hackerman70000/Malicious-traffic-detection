@@ -5,12 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         
+        
         {
             "name": "Python Debugger: Module",
             "type": "debugpy",
             "request": "launch",
             "module": "mtd",
-            "args": ["${workspaceFolder}/data/raw/CTU-13/capture20110815-2.truncated.pcap", "--sigma-paths=${workspaceFolder}/sigma.yaml"],
+            "args": ["${workspaceFolder}/data/raw/normal/2016-09-13_win16(2).pcap", "--sigma-paths=${workspaceFolder}/sigma.yaml"],
         }
     ]
 }

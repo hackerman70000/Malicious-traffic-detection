@@ -7,7 +7,11 @@
 
 ## Usage
 
-###
+### Run the app
+
+```bash
+uv run -m mtd path/to/file.pcap
+```
 
 ### PCAP to CSV conversion
 

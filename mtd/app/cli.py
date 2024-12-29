@@ -40,8 +40,9 @@ def main(
     source: Annotated[Optional[Path | str], typer.Option(click_type=SourceParser)],
     plugins: Optional[list[Path]] = typer.Option(None, help="Directories or files to load plugins from"),
     sigma_paths: Optional[list[Path]] = typer.Option(None, help="Directories or files to load sigma rules from"),
+    model_path: Optional[Path] = typer.Option(None, help="Path to the model directory containing model.json and metadata.json"),
    ):
-    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths)
+    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths, model_path=model_path)
     
     tp.process()
 

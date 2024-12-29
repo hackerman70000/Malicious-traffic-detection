@@ -4,12 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "Python Debugger: Module",
             "type": "debugpy",
             "request": "launch",
             "module": "mtd",
-            "args": ["/home/opliko/projects/Malicious-traffic-detection/data/raw/normal/2016-09-13_win16.pcap", "--sigma-paths=./sigma.yaml"],
+            "args": ["${workspaceFolder}/data/raw/CTU-13/capture20110815-2.truncated.pcap", "--sigma-paths=${workspaceFolder}/sigma.yaml"],
         }
     ]
 }

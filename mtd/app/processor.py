@@ -10,6 +10,7 @@ import pandas as pd
 
 from mtd.app.plugins import Plugins
 from mtd.data.detections.sigma import SigmaDetections
+from mtd.data.detections.xgboost import XGBoostPredictions
 from mtd.data.enrichment.geoip import GeoIpEnrichment
 from mtd.data.enrichment.greynoise import GreyNoiseEnrichment
 from rich_dataframe import prettify
@@ -36,6 +37,7 @@ class TrafficProcessor():
         self.plugins = Plugins(plugins)
         self.plugins.add_plugins([
             # GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
+            XGBoostPredictions(model_path=kwargs.get("model_path")),
             GeoIpEnrichment(),
             SigmaDetections(sigma_paths=kwargs.get("sigma_paths"))
         ])

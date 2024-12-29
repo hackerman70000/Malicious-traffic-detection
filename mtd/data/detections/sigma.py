@@ -21,7 +21,7 @@ class SigmaDetections(NFPlugin):
         self.on_update(packet, flow)
     def on_expire(self, flow):
         if len(self.sigma) > 0:
-            df = pd.DataFrame(flow.values(), index=flow.keys())
+            df = pd.DataFrame(flow.values(), index=flow.keys()).transpose()
             for query in self.sigma:
                 try:
                     if query[1](df).size > 0:

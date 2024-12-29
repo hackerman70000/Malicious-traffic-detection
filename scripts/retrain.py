@@ -8,7 +8,7 @@ import argparse
 from pathlib import Path
 from typing import List
 
-from src.models.retrainer import ModelRetrainer
+from mtd.models.retrainer import ModelRetrainer
 
 
 def parse_arguments() -> argparse.Namespace:

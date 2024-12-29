@@ -10,8 +10,8 @@ import logging
 import sys
 from pathlib import Path
 
-from src.data.preprocessor import MemoryEfficientPreprocessor
-from src.utils.config import Config, default_config
+from mtd.data.preprocessor import MemoryEfficientPreprocessor
+from mtd.utils.config import Config, default_config
 
 
 def setup_logging(verbose: bool = False) -> None:

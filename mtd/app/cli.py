@@ -8,7 +8,7 @@ from click import Path as ClickPath
 from click.shell_completion import CompletionItem
 from typing_extensions import Annotated
 
-from src.app.processor import TrafficProcessor
+from mtd.app.processor import TrafficProcessor
 
 app = pydantic_typer.Typer()
 

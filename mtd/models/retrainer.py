@@ -9,7 +9,7 @@ import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, precision_score
 from sklearn.model_selection import train_test_split
 
-from src.utils.visualization import plot_confusion_matrix
+from mtd.utils.visualization import plot_confusion_matrix
 
 
 class ModelRetrainer:

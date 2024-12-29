@@ -35,12 +35,12 @@ class SigmaDetections(NFPlugin):
                     else:
                         flow.udps.enrichments["sigma"][query[0].title] = {
                             "detected": False,
-                            "query": query[0],
+                            "query": query[0].to_dict(),
                             "error": None,
                         }
                 except Exception as e:
                     flow.udps.enrichments["sigma"][query[0].title] = {
                         "detected": False,
-                        "query": query[0],
+                        "query": query[0].to_dict(),
                         "error": str(e),
                     }

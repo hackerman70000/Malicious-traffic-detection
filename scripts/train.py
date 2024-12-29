@@ -8,9 +8,9 @@ import argparse
 import logging
 from pathlib import Path
 
-from src.data.feature_processor import FeatureProcessor
-from src.models.trainer import ModelTrainer
-from src.utils.config import Config, default_config
+from mtd.data.feature_processor import FeatureProcessor
+from mtd.models.trainer import ModelTrainer
+from mtd.utils.config import Config, default_config
 
 
 def setup_logging() -> None:

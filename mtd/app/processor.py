@@ -1,4 +1,5 @@
 
+import ast
 from itertools import chain
 import os
 from pathlib import Path
@@ -7,10 +8,10 @@ from typing import Iterable, Optional
 from nfstream import NFStreamer, NFPlugin
 import pandas as pd
 
-from src.app.plugins import Plugins
-from src.data.detections.sigma import SigmaDetections
-from src.data.enrichment.geoip import GeoIpEnrichment
-from src.data.enrichment.greynoise import GreyNoiseEnrichment
+from mtd.app.plugins import Plugins
+from mtd.data.detections.sigma import SigmaDetections
+from mtd.data.enrichment.geoip import GeoIpEnrichment
+from mtd.data.enrichment.greynoise import GreyNoiseEnrichment
 from rich_dataframe import prettify
 from rich import print
 from rich.console import Console
@@ -104,15 +105,14 @@ class TrafficProcessor():
             layout["main"].update(Panel(plot))
         self.report(self.to_pandas())
         
-    def report(self, pd):
+    def report(self, df):
         console = Console()
-        by_src_ip = pd.groupby("src_ip")
+        df = df.join(pd.json_normalize(df["udps.enrichments"].apply(ast.literal_eval)).add_prefix("udps.enrichments."))
+        by_src_ip = df.groupby("src_ip")
         prettify(by_src_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "src2dst_first_seen_ms": ["min", "max"], "src2dst_last_seen_ms": ["min", "max"], "udps.detections": "sum"}), clear_console=False, delay_time=0.1, row_limit=1024)
         console.rule("[bold yellow]enrichments and detections")
 
-        exploded = pd.explode("udps.enrichments")
-        pd.concat([exploded["id"].reset_index(drop=True), pd.json_normalize(exploded["udps.enrichments"])], axis=1)
-        prettify(pd, col_limit=20, clear_console=False, delay_time=0.1, row_limit=1024)
+        prettify(df.filter(regex=r'(^udps\.enrichments\.|src_ip$|dst_ip$)', axis=1), col_limit=20, clear_console=False, delay_time=0.1, row_limit=20)
 
          
 

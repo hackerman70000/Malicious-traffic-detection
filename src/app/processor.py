@@ -13,8 +13,19 @@ from src.data.enrichment.geoip import GeoIpEnrichment
 from src.data.enrichment.greynoise import GreyNoiseEnrichment
 from rich_dataframe import prettify
 from rich import print
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.ansi import AnsiDecoder
+from rich.console import Group
+from rich.jupyter import JupyterMixin
+from rich.panel import Panel
+from rich.text import Text
+from rich.progress import SpinnerColumn, Progress
+import plotext as plt
 
 default_plugins = []
+
 
 class TrafficProcessor():
     streamer: NFStreamer
@@ -32,23 +43,78 @@ class TrafficProcessor():
             self.plugins.load_plugin_dir(plugin_dir)
         self.plugins.load_prefixed_plugins()
 
-        self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins)
+        self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins, )
     def setup_plugins(self):
         self.streamer.udps = self.plugins
 
-    def process(self):
-        for flow in self.streamer:
-            self.report(pd.DataFrame.from_records([flow.values()], columns=flow.keys()))
+    def plot_detections(self, detections):
+        def make_plot(width, height, detected, title):
+            if (not len(detected)):
+                return "no detections"
+            bins = pd.cut(list(detected.keys()), bins=round(width / 5))
+            detected = pd.Series(detected).groupby(bins, observed=False).sum().to_dict()
+            plt.clt()
+            plt.clf()
+            plt.limit_size(True, True)
+            plt.plotsize(width, height)
+            plt.bar(list(map(lambda interval: round(interval.mid), detected.keys())), list(detected.values()), reset_ticks=True)
+            plt.title(title)
+            plt.xlabel("time [s]")
+            plt.ylabel("count")
+            plt.ylim(0, max(detected.values()) + 1)
+            plt.theme("dark")
+            return plt.build()
+        class plotextMixin(JupyterMixin):
+            def __init__(self, detections, title = ""):
+                self.decoder = AnsiDecoder()
+                self.detected = detections
+                self.title = title
+
+            def __rich_console__(self, console, options):
+                self.width = options.max_width or console.width
+                self.height = options.height or console.height
+                canvas = make_plot(self.width, self.height, self.detected, self.title)
+                self.rich_canvas = Group(*self.decoder.decode(canvas))
+                yield self.rich_canvas
+        return plotextMixin(detections, title="detections")
         
+        
+
+    def process(self):
+        layout = Layout(name="plot", ratio=1)
+        layout.split(
+            Layout(name="main", ratio=5),
+            Layout(name="bottom", ratio=1)
+        )
+        detections = {}
+        progress = Progress("processing", SpinnerColumn(finished_text="✅"))
+        processing_task = progress.add_task("processing flows", total=1)
+        layout["bottom"].update(progress)
+        with Live(layout, refresh_per_second=4) as live:
+            for flow in self.streamer:
+                # self.report(pd.DataFrame.from_records([flow.values()], columns=flow.keys()))
+                timestamp_s = flow.bidirectional_first_seen_ms // 1000
+                detections[timestamp_s] =  int(detections.get(timestamp_s, 0) + flow.udps.detections)
+                plot = self.plot_detections(detections)
+                layout["main"].update(Panel(plot))
+                live.refresh()
+            progress.advance(processing_task)
+            plot = None
+            plot = self.plot_detections(detections)
+            layout["main"].update(Panel(plot))
         self.report(self.to_pandas())
         
     def report(self, pd):
-        by_ip = pd.groupby("src_ip")
-        print(prettify(by_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "bidirectional_mean_ps": "sum", "dst2src_first_seen_ms": ["min", "max"], "dst2src_last_seen_ms": ["min", "max"], "udps.detections": "sum"}), clear_console=False, delay_time=0.1))
+        console = Console()
+        by_src_ip = pd.groupby("src_ip")
+        prettify(by_src_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "src2dst_first_seen_ms": ["min", "max"], "src2dst_last_seen_ms": ["min", "max"], "udps.detections": "sum"}), clear_console=False, delay_time=0.1, row_limit=1024)
+        console.rule("[bold yellow]enrichments and detections")
 
-        print(prettify(by_ip.agg({
-            "udps.enrichments": "first"
-        }), col_limit=20, clear_console=False, delay_time=0.1))
+        exploded = pd.explode("udps.enrichments")
+        pd.concat([exploded["id"].reset_index(drop=True), pd.json_normalize(exploded["udps.enrichments"])], axis=1)
+        prettify(pd, col_limit=20, clear_console=False, delay_time=0.1, row_limit=1024)
+
+         
 
     def to_pandas(self):
         """ fixed streamer to pandas function (added escapechar) """

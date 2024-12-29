@@ -33,20 +33,19 @@ class TrafficProcessor():
     streamer: NFStreamer
 
     plugins: Plugins
-    def __init__(self, source: Path | str, plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, **kwargs):
+    def __init__(self, source: Path | str, default_plugins: Iterable[str], plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, **kwargs):
         self.plugins = Plugins(plugins)
-        self.plugins.add_plugins([
+        self.plugins.add_plugins(value for key, value in{
             # GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
-            XGBoostPredictions(model_path=kwargs.get("model_path")),
-            GeoIpEnrichment(),
-            SigmaDetections(sigma_paths=kwargs.get("sigma_paths"))
-        ])
+            "GeoIP": GeoIpEnrichment(),
+            "Sigma": SigmaDetections(sigma_paths=kwargs.get("sigma_paths")),
+            "ML": XGBoostPredictions(model_path=kwargs.get("model_path")),
+        }.items() if key in default_plugins)
         self.plugins.load_plugin_dir()
         for plugin_dir in plugin_dirs or []:
             self.plugins.load_plugin_dir(plugin_dir)
         self.plugins.load_prefixed_plugins()
-
-        self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins, )
+        self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins)
     def setup_plugins(self):
         self.streamer.udps = self.plugins
 

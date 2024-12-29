@@ -69,6 +69,8 @@ class XGBoostPredictions(NFPlugin):
     def on_expire(self, flow):
         """Make predictions when flow expires."""
         try:
+            # It seems something in XGBoost isn't thread-safe, even though it should be
+            # so we're just reloading the model every time, since each flow could be processed in a different thread
             model = self._load_model()
             # Create DataFrame from flow features
             df = pd.DataFrame(flow.values(), index=flow.keys()).transpose().astype({feature: feature_type for feature, feature_type in zip(self.feature_names, model.feature_types)})

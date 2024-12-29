@@ -41,8 +41,9 @@ def main(
     plugins: Optional[list[Path]] = typer.Option(None, help="Directories or files to load plugins from"),
     sigma_paths: Optional[list[Path]] = typer.Option(None, help="Directories or files to load sigma rules from"),
     model_path: Optional[Path] = typer.Option(None, help="Path to the model directory containing model.json and metadata.json"),
+    default_plugins: list[str] = typer.Option(["Sigma", "GeoIP", "ML"], help="By default all plugins are loaded, change this to load only specific plugins"),
    ):
-    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths, model_path=model_path)
+    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths, model_path=model_path, default_plugins=default_plugins)
     
     tp.process()
 

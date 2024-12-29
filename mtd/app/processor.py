@@ -13,7 +13,7 @@ from mtd.data.detections.sigma import SigmaDetections
 from mtd.data.detections.xgboost import XGBoostPredictions
 from mtd.data.enrichment.geoip import GeoIpEnrichment
 from mtd.data.enrichment.greynoise import GreyNoiseEnrichment
-from rich_dataframe import prettify
+from rich_dataframe import prettify, console as pretty_console
 from rich import print
 from rich.console import Console
 from rich.layout import Layout
@@ -33,7 +33,7 @@ class TrafficProcessor():
     streamer: NFStreamer
 
     plugins: Plugins
-    def __init__(self, source: Path | str, default_plugins: Iterable[str], plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, **kwargs):
+    def __init__(self, source: Path | str, default_plugins: Iterable[str], plugins: Optional[Iterable[NFPlugin]] = None, plugin_dirs: Optional[list[Path]] = None, output: Optional[Path] = None, **kwargs):
         self.plugins = Plugins(plugins)
         self.plugins.add_plugins(value for key, value in{
             # GreyNoiseEnrichment(greynoise_api_key=kwargs.get("greynoise_api_key")),
@@ -46,6 +46,7 @@ class TrafficProcessor():
             self.plugins.load_plugin_dir(plugin_dir)
         self.plugins.load_prefixed_plugins()
         self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins)
+        self.output = output
     def setup_plugins(self):
         self.streamer.udps = self.plugins
 
@@ -53,8 +54,11 @@ class TrafficProcessor():
         def make_plot(width, height, detected, title):
             if (not len(detected)):
                 return "no detections"
-            bins = pd.cut(list(detected.keys()), bins=round(width / 5))
-            detected = pd.Series(detected).groupby(bins, observed=False).sum().to_dict()
+            try:
+                bins = pd.cut(list(detected.keys()), bins=round(width / 5))
+                detected = pd.Series(detected).groupby(bins, observed=False).sum().to_dict()
+            except ValueError:
+                return "weird size mismatch, hopefully doesn't matter"
             plt.clt()
             plt.clf()
             plt.limit_size(True, True)
@@ -110,12 +114,24 @@ class TrafficProcessor():
         console = Console()
         df = df.join(pd.json_normalize(df["udps.enrichments"].apply(ast.literal_eval)).add_prefix("udps.enrichments."))
         by_src_ip = df.groupby("src_ip")
-        prettify(by_src_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "src2dst_first_seen_ms": ["min", "max"], "src2dst_last_seen_ms": ["min", "max"], "udps.detections": "sum"}), clear_console=False, delay_time=0.1, row_limit=1024)
+        aggregated = by_src_ip.agg({"src2dst_packets": "sum", "src2dst_bytes": "sum", "bidirectional_packets": "sum", "bidirectional_bytes": "sum", "src2dst_first_seen_ms": ["min", "max"], "src2dst_last_seen_ms": ["min", "max"], "udps.detections": "sum"})
+        if aggregated.shape[0] > 80:
+            with pretty_console.pager():
+                prettify(aggregated, clear_console=False, delay_time=0.1, row_limit=aggregated.shape[0])
+        else:
+            prettify(aggregated, col_limit=20, clear_console=False, delay_time=0.1, row_limit=80)
         console.rule("[bold yellow]enrichments and detections")
 
-        prettify(df.filter(regex=r'(^udps\.enrichments\.|src_ip$|dst_ip$)', axis=1), col_limit=20, clear_console=False, delay_time=0.1, row_limit=20)
+        enrichments = df.filter(regex=r'(^udps\.enrichments\.|src_ip$|dst_ip$)', axis=1)
+        if enrichments.shape[0] > 80:
+            with pretty_console.pager():
+                prettify(enrichments, clear_console=False, delay_time=0.1, row_limit=enrichments.shape[0])
+        else:
+            prettify(enrichments, col_limit=20, clear_console=False, delay_time=0.1, row_limit=80)
 
-         
+        if self.output:
+            df.to_csv(self.output, index=False)
+            console.print(f"results saved to {self.output}")
 
     def to_pandas(self):
         """ fixed streamer to pandas function (added escapechar) """

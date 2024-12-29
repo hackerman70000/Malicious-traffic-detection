@@ -29,7 +29,6 @@ class XGBoostPredictions(NFPlugin):
             model_path = versions[-1].parent.parent
 
         self.model_dir = Path(model_path)
-        self.model = self._load_model()
         self.metadata = self._load_metadata()
         self.feature_names = self.metadata.get("feature_names", [])
 
@@ -70,8 +69,9 @@ class XGBoostPredictions(NFPlugin):
     def on_expire(self, flow):
         """Make predictions when flow expires."""
         try:
+            model = self._load_model()
             # Create DataFrame from flow features
-            df = pd.DataFrame(flow.values(), index=flow.keys()).transpose().astype({feature: "float64" for feature in self.feature_names})
+            df = pd.DataFrame(flow.values(), index=flow.keys()).transpose().astype({feature: feature_type for feature, feature_type in zip(self.feature_names, model.feature_types)})
 
             # Keep only features used by the model
             available_features = set(df.columns) & set(self.feature_names)
@@ -83,8 +83,8 @@ class XGBoostPredictions(NFPlugin):
             X = df[self.feature_names]
 
             # Make prediction
-            prediction = self.model.predict(X)[0]
-            probability = self.model.predict_proba(X)[0].max()
+            prediction = model.predict(X)[0]
+            probability = model.predict_proba(X)[0].max()
 
             flow.udps.enrichments["xgboost"].update(
                 {

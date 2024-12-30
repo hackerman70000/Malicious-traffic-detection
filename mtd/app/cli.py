@@ -43,8 +43,10 @@ def main(
     model_path: Optional[Path] = typer.Option(None, help="Path to the model directory containing model.json and metadata.json"),
     default_plugins: list[str] = typer.Option(["Sigma", "GeoIP", "ML", "GreyNoise"], help="By default all plugins are loaded, change this to load only specific plugins"),
     output: Optional[Path] = typer.Option(None, help="Output file to write detections to"),
+    greynoise_api_key: Optional[str] = typer.Option(None, help="GreyNoise API key"),
+    draw_map: Optional[bool] = typer.Option(False, help="Whether to plot detections on a map"),
    ):
-    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths, model_path=model_path, default_plugins=default_plugins, output=output)
+    tp = TrafficProcessor(source, plugin_dirs=plugins, sigma_paths=sigma_paths, model_path=model_path, default_plugins=default_plugins, output=output, greynoise_api_key=greynoise_api_key, draw_map=draw_map)
     
     tp.process()
 

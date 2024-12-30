@@ -15,10 +15,13 @@ class GeoIpEnrichment(NFPlugin):
             return trace_ip(ip)
         except Exception as e:
             return SimpleNamespace(status="error", error=str(e))
-    def on_update(self, packet, flow):
-        if packet.src_ip not in flow.udps.enrichments["geoip"]:
-            result = GeoIpEnrichment._get_geoip(packet.src_ip)
-            if result.status == "success":
-                flow.udps.enrichments["geoip"][str(packet.src_ip)] = result.json()
+    def on_expire(self, flow):
+        result = GeoIpEnrichment._get_geoip(flow.src_ip)
+        if result.status == "success":
+            flow.udps.enrichments["geoip_src"] = result.json()
+        
+        result = GeoIpEnrichment._get_geoip(flow.dst_ip)
+        if result.status == "success":
+            flow.udps.enrichments["geoip_dst"] = result.json()
     def cleanup(self):
         GeoIpEnrichment._get_geoip.cache_clear()

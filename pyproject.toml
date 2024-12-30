@@ -28,4 +28,6 @@ dependencies = [
     "pysigma-backend-pd-df>=0.3.0",
     "plotext>=5.3.2",
     "sortedcontainers>=2.4.0",
+    "folium>=0.19.3",
+    "requests>=2.32.3",
 ]

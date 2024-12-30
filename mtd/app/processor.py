@@ -1,12 +1,15 @@
 
 import ast
 from itertools import chain
+import json
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile, SpooledTemporaryFile
 from typing import Iterable, Optional
+import folium
 from nfstream import NFStreamer, NFPlugin
 import pandas as pd
+import requests
 
 from mtd.app.plugins import Plugins
 from mtd.data.detections.sigma import SigmaDetections
@@ -47,6 +50,7 @@ class TrafficProcessor():
         self.plugins.load_prefixed_plugins()
         self.streamer = NFStreamer(source, statistical_analysis=True, udps=self.plugins)
         self.output = output
+        self.map = kwargs.get("draw_map", False)
     def setup_plugins(self):
         self.streamer.udps = self.plugins
 
@@ -132,6 +136,11 @@ class TrafficProcessor():
         if self.output:
             df.to_csv(self.output, index=False)
             console.print(f"results saved to {self.output}")
+        if self.map:
+            try:
+                self.draw_map(df)
+            except Exception as e:
+                console.print(f"failed to draw map: {e}")
 
     def to_pandas(self):
         """ fixed streamer to pandas function (added escapechar) """
@@ -145,3 +154,30 @@ class TrafficProcessor():
             else:
                 df = None
             return df
+    def draw_map(self, df):
+        data = df.groupby("src_ip").agg({"udps.detections": "sum", "udps.enrichments.geoip_src": "first"}).dropna()
+
+        geodata = data["udps.enrichments.geoip_src"].apply(json.loads).apply(pd.Series)
+
+
+        data = data.join(geodata)
+        data = data.dropna(subset=["country"])
+
+        geo_data = requests.get("https://raw.githubusercontent.com/python-visualization/folium-example-data/refs/heads/main/world_countries.json").json()
+        m = folium.Map([0, 0], zoom_start=1)
+        folium.Choropleth(
+            geo_data=geo_data,
+            name="choropleth",
+            data=data,
+            columns=["country", "udps.detections"],
+            key_on="country",
+            fill_color="YlGn",
+            fill_opacity=0.7,
+            line_opacity=0.2,
+            legend_name="Detections",
+        ).add_to(m)
+
+        m.save("map.html")
+
+
+

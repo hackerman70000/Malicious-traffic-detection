@@ -170,7 +170,7 @@ class TrafficProcessor():
             name="choropleth",
             data=data,
             columns=["country", "udps.detections"],
-            key_on="country",
+            key_on="feature.properties.name",
             fill_color="YlGn",
             fill_opacity=0.7,
             line_opacity=0.2,
